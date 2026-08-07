@@ -2,9 +2,9 @@ THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 ============================================================
 
 Project: heir
-Generated: 2026-07-25
+Generated: 2026-08-07
 Tool: SCANOSS (snippet detection with License dataset)
-Components: 9
+Components: 14
 
 This file lists all third-party software components detected
 in this repository, along with their licenses and copyright
@@ -21,8 +21,9 @@ These require manual review to determine licensing terms.
 
 LICENSE SUMMARY
 
-  Apache-2.0: 7 component(s)
+  Apache-2.0: 11 component(s)
   Apache-2.0 AND ISC AND BSD-3-Clause: 1 component(s)
+  Apache-with-LLVM-Exception: 1 component(s)
   BSD-3-Clause: 1 component(s)
   ISC: 1 component(s)
   MIT: 3 component(s)
@@ -30,6 +31,41 @@ LICENSE SUMMARY
 ------------------------------------------------------------
 
 COMPONENT ATTRIBUTIONS
+
+  aos
+  Version: 9e77e62
+  Source: https://github.com/realtimeroboticsgroup/aos
+  PURL: pkg:github/realtimeroboticsgroup/aos
+  Copyright:
+    Copyright 1989 ; 1991 Free Software Foundation; Inc.
+    Copyright 1991 ; 1999 Free Software Foundation; Inc.
+    Copyright 1996-2015 ; Timothy A. Davis; Patrick R. Amestoy; and Iain S. Duff.
+    Copyright 2003-2017 University of Illinois at Urbana-Champaign.
+    Copyright 2006-2015 ; Thomas Pircher <tehpeh-web@tty1.net>
+    Copyright 2007 Free Software Foundation; Inc. <http:  fsf.org >
+    Copyright 2009-2025 FIRST and other WPILib contributors
+    Copyright 2010 - 2015 ; Alfred E. Heggestad
+    Copyright 2010 - 2015 ; Creytiv.com
+    Copyright 2010 - 2015 ; Richard Aas
+    Copyright 2010 - 2019 ; Alfred E. Heggestad
+    Copyright 2010 - 2019 ; Creytiv.com
+    Copyright 2010 - 2019 ; Richard Aas
+    Copyright 2011 ; Google Inc.
+    Copyright 2011 ; Intel Corporation. All rights reserved.
+    Copyright 2013-2016 ; The Regents of The University of Michigan.
+    Copyright 2013-2017 ; Matt Godbolt
+    Copyright 2014 Benno Evers
+    Copyright 2014 Google Inc.
+    Copyright 2014 Marco Paland
+    Copyright 2015 ;  Randall Stewart and Michael Tuexen
+    Copyright 2018 ; Lennart Grahl
+    Copyright 2018 ; Paul Goulart; Bartolomeo Stellato; Goran Banjac.
+    Copyright 2018 ; hathach (tinyusb.org)
+    Copyright 2019 ; Lennart Grahl
+    Copyright 2019 Bartolomeo Stellato; Goran Banjac; Paul Goulart; Stephen Boyd
+    Copyright 2020 (c) 2020 Raspberry Pi (Trading) Ltd.
+    Copyright 2021 Bartolomeo Stellato; Goran Banjac; Paul Goulart; Stephen Boyd
+  License: Apache-2.0
 
   belfort-heir
   Version: 2026.6.15.dev0
@@ -68,6 +104,12 @@ COMPONENT ATTRIBUTIONS
     Copyright 2014 Johann Glaser  Johann.Glaser@gmx.at
     Copyright 2017 Robert Ou  rqou@robertou.com
   License: Apache-2.0, Apache-2.0 AND ISC AND BSD-3-Clause, BSD-3-Clause, ISC
+
+  github.com/tuneinsight/ckks-noise-estimator/estimator
+  Version: v0.0.0-20250512121910-53dd2367a25a
+  Source: https://proxy.golang.org/github.com/tuneinsight/ckks-noise-estimator/estimator/@v/v0.0.0-20250512121910-53dd2367a25a.zip
+  PURL: pkg:golang/github.com/tuneinsight/ckks-noise-estimator/estimator
+  License: Apache-2.0
 
   heir
   Version: nightly-2026.05.28
@@ -123,11 +165,36 @@ COMPONENT ATTRIBUTIONS
     Copyright copyright owner or entity authorized by
   License: Apache-2.0
 
+  KeyMemRT-Compiler
+  Version: v0.0.1-b1ced7f7
+  Source: https://github.com/eymay/KeyMemRT-Compiler
+  PURL: pkg:github/eymay/keymemrt-compiler
+  Copyright:
+    Copyright 2012-2018 Clifford Wolf  clifford@clifford.at    dave@ds0.me
+  License: Apache-with-LLVM-Exception
+
+  mlir-hlo
+  Version: 6d9d780
+  Source: https://github.com/tensorflow/mlir-hlo
+  PURL: pkg:github/tensorflow/mlir-hlo
+  Copyright:
+    Copyright 2022 The TensorFlow Authors
+    Copyright 2022 The TensorFlow Authors. All Rights Reserved.
+  License: Apache-2.0
+
   stream-hls
   Version: 46ceee7
   Source: https://github.com/ucla-vast/stream-hls
   PURL: pkg:github/ucla-vast/stream-hls
   License: MIT
+
+  tensorrt-incubator
+  Version: mlir-tensorrt-v0.4.4.dev202512190
+  Source: https://github.com/nvidia/tensorrt-incubator
+  PURL: pkg:github/nvidia/tensorrt-incubator
+  Copyright:
+    Copyright 2023-2025 NVIDIA CORPORATION   AFFILIATES
+  License: Apache-2.0
 
   wpkit2
   Version: 0.0.0.1
@@ -138,6 +205,21 @@ COMPONENT ATTRIBUTIONS
 ------------------------------------------------------------
 
 FULL LICENSE TEXTS
+
+--- Apache-2.0 ---
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
 
 --- MIT ---
 
@@ -158,21 +240,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-
---- Apache-2.0 ---
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
 
 
 --- Apache-2.0 AND ISC AND BSD-3-Clause ---
@@ -231,4 +298,9 @@ INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
 LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
+
+
+--- Apache-with-LLVM-Exception ---
+
+Full license text available at: https://spdx.org/licenses/Apache-with-LLVM-Exception.html
 

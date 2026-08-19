@@ -2,7 +2,7 @@ THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 ============================================================
 
 Project: heir
-Generated: 2026-08-07
+Generated: 2026-08-19
 Tool: SCANOSS (snippet detection with License dataset)
 Components: 14
 
@@ -120,9 +120,9 @@ COMPONENT ATTRIBUTIONS
     Copyright 2006-2013 Alexander Chemeris
     Copyright 2010-2018 Max-Planck-Society
     Copyright 2012 - 2018 Clifford Wolf <clifford@clifford.at>; <dave@ds0.me>
-    Copyright 2012 Eddie Hung <eddie@fpgeh.com>
+    Copyright 2012 Eddie Hung  eddie@fpgeh.com
     Copyright 2012 Martin Schm    lzer <martin@schmoelzer.at>
-    Copyright 2014 Johann Glaser <Johann.Glaser@gmx.at>
+    Copyright 2014 Johann Glaser  Johann.Glaser@gmx.at
     Copyright 2015 THL A29 Limited; a Tencent company; and Milo Yip. All rights reserved.
     Copyright 2017 Robert Ou <rqou@robertou.com>
     Copyright 2018 David Shah  dave@ds0.me    david@symbioticeda.com
@@ -143,6 +143,7 @@ COMPONENT ATTRIBUTIONS
     Copyright 2012-2018 Clifford Wolf  clifford@clifford.at    dave@ds0.me
     Copyright 2017 Robert Ou  rqou@robertou.com
     Copyright 2018 David Shah  dave@ds0.me    david@symbioticeda.com
+    Copyright 2018 Icenowy Zheng  icenowy@aosc.io
     Copyright 2018 Miodrag Milanovic  miodrag@symbioticeda.com
     Copyright 2018 Ruben Undheim  ruben.undheim@gmail.com
     Copyright 2018 Serge Bazanski  q3k@symbioticeda.com

@@ -1,0 +1,307 @@
+THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
+============================================================
+
+Project: heir
+Generated: 2026-08-19
+Tool: SCANOSS (snippet detection with License dataset)
+Components: 14
+
+This file lists all third-party software components detected
+in this repository, along with their licenses and copyright
+notices as required by those licenses.
+
+------------------------------------------------------------
+
+WARNING: The following component(s) have no license information.
+These require manual review to determine licensing terms.
+
+  - wpkit2 (https://pypi.org/project/wpkit2)
+
+------------------------------------------------------------
+
+LICENSE SUMMARY
+
+  Apache-2.0: 11 component(s)
+  Apache-2.0 AND ISC AND BSD-3-Clause: 1 component(s)
+  Apache-with-LLVM-Exception: 1 component(s)
+  BSD-3-Clause: 1 component(s)
+  ISC: 1 component(s)
+  MIT: 3 component(s)
+
+------------------------------------------------------------
+
+COMPONENT ATTRIBUTIONS
+
+  aos
+  Version: 9e77e62
+  Source: https://github.com/realtimeroboticsgroup/aos
+  PURL: pkg:github/realtimeroboticsgroup/aos
+  Copyright:
+    Copyright 1989 ; 1991 Free Software Foundation; Inc.
+    Copyright 1991 ; 1999 Free Software Foundation; Inc.
+    Copyright 1996-2015 ; Timothy A. Davis; Patrick R. Amestoy; and Iain S. Duff.
+    Copyright 2003-2017 University of Illinois at Urbana-Champaign.
+    Copyright 2006-2015 ; Thomas Pircher <tehpeh-web@tty1.net>
+    Copyright 2007 Free Software Foundation; Inc. <http:  fsf.org >
+    Copyright 2009-2025 FIRST and other WPILib contributors
+    Copyright 2010 - 2015 ; Alfred E. Heggestad
+    Copyright 2010 - 2015 ; Creytiv.com
+    Copyright 2010 - 2015 ; Richard Aas
+    Copyright 2010 - 2019 ; Alfred E. Heggestad
+    Copyright 2010 - 2019 ; Creytiv.com
+    Copyright 2010 - 2019 ; Richard Aas
+    Copyright 2011 ; Google Inc.
+    Copyright 2011 ; Intel Corporation. All rights reserved.
+    Copyright 2013-2016 ; The Regents of The University of Michigan.
+    Copyright 2013-2017 ; Matt Godbolt
+    Copyright 2014 Benno Evers
+    Copyright 2014 Google Inc.
+    Copyright 2014 Marco Paland
+    Copyright 2015 ;  Randall Stewart and Michael Tuexen
+    Copyright 2018 ; Lennart Grahl
+    Copyright 2018 ; Paul Goulart; Bartolomeo Stellato; Goran Banjac.
+    Copyright 2018 ; hathach (tinyusb.org)
+    Copyright 2019 ; Lennart Grahl
+    Copyright 2019 Bartolomeo Stellato; Goran Banjac; Paul Goulart; Stephen Boyd
+    Copyright 2020 (c) 2020 Raspberry Pi (Trading) Ltd.
+    Copyright 2021 Bartolomeo Stellato; Goran Banjac; Paul Goulart; Stephen Boyd
+  License: Apache-2.0
+
+  belfort-heir
+  Version: 2026.6.15.dev0
+  Source: https://pypi.org/project/belfort-heir
+  PURL: pkg:pypi/belfort-heir
+  Copyright:
+    Copyright 2012-2018 Clifford Wolf  clifford@clifford.at    dave@ds0.me
+    Copyright 2014 Johann Glaser  Johann.Glaser@gmx.at
+    Copyright 2018 Icenowy Zheng  icenowy@aosc.io
+    Copyright 2018 Ruben Undheim  ruben.undheim@gmail.com
+  License: Apache-2.0, MIT
+
+  docsy-example
+  Version: v0.7.0
+  Source: https://github.com/google/docsy-example
+  PURL: pkg:github/google/docsy-example
+  Copyright:
+    Copyright copyright owner or entity authorized by
+  License: Apache-2.0
+
+  gateway
+  Version: v1.0.0
+  Source: https://github.com/envoyproxy/gateway
+  PURL: pkg:github/envoyproxy/gateway
+  Copyright:
+    Copyright copyright owner or entity authorized by
+  License: Apache-2.0
+
+  github.com/google/heir
+  Version: v0.0.0-20250528222450-089e2767a921
+  Source: https://proxy.golang.org/github.com/google/heir/@v/v0.0.0-20250528222450-089e2767a921.zip
+  PURL: pkg:golang/github.com/google/heir
+  Copyright:
+    Copyright 2012 Eddie Hung  eddie@fpgeh.com
+    Copyright 2012-2018 Clifford Wolf  clifford@clifford.at    dave@ds0.me
+    Copyright 2014 Johann Glaser  Johann.Glaser@gmx.at
+    Copyright 2017 Robert Ou  rqou@robertou.com
+  License: Apache-2.0, Apache-2.0 AND ISC AND BSD-3-Clause, BSD-3-Clause, ISC
+
+  github.com/tuneinsight/ckks-noise-estimator/estimator
+  Version: v0.0.0-20250512121910-53dd2367a25a
+  Source: https://proxy.golang.org/github.com/tuneinsight/ckks-noise-estimator/estimator/@v/v0.0.0-20250512121910-53dd2367a25a.zip
+  PURL: pkg:golang/github.com/tuneinsight/ckks-noise-estimator/estimator
+  License: Apache-2.0
+
+  heir
+  Version: nightly-2026.05.28
+  Source: https://github.com/google/heir
+  PURL: pkg:github/google/heir
+  Copyright:
+    Copyright 2004-2008 Ren   Nyffenegger
+    Copyright 2006-2013 Alexander Chemeris
+    Copyright 2010-2018 Max-Planck-Society
+    Copyright 2012 - 2018 Clifford Wolf <clifford@clifford.at>; <dave@ds0.me>
+    Copyright 2012 Eddie Hung  eddie@fpgeh.com
+    Copyright 2012 Martin Schm    lzer <martin@schmoelzer.at>
+    Copyright 2014 Johann Glaser  Johann.Glaser@gmx.at
+    Copyright 2015 THL A29 Limited; a Tencent company; and Milo Yip. All rights reserved.
+    Copyright 2017 Robert Ou <rqou@robertou.com>
+    Copyright 2018 David Shah  dave@ds0.me    david@symbioticeda.com
+    Copyright 2018 Icenowy Zheng  icenowy@aosc.io
+    Copyright 2018 Miodrag Milanovic <miodrag@symbioticeda.com>
+    Copyright 2018 Ruben Undheim <ruben.undheim@gmail.com>
+    Copyright 2018 Serge Bazanski <q3k@symbioticeda.com>
+    Copyright 2018 whitequark <whitequark@whitequark.org>
+    Copyright copyright owner or entity authorized by
+  License: Apache-2.0
+
+  heir-py
+  Version: 2026.6.25.dev0
+  Source: https://pypi.org/project/heir-py
+  PURL: pkg:pypi/heir-py
+  Copyright:
+    Copyright 2012 Claire Xenia Wolf  claire@yosyshq.com
+    Copyright 2012-2018 Clifford Wolf  clifford@clifford.at    dave@ds0.me
+    Copyright 2017 Robert Ou  rqou@robertou.com
+    Copyright 2018 David Shah  dave@ds0.me    david@symbioticeda.com
+    Copyright 2018 Icenowy Zheng  icenowy@aosc.io
+    Copyright 2018 Miodrag Milanovic  miodrag@symbioticeda.com
+    Copyright 2018 Ruben Undheim  ruben.undheim@gmail.com
+    Copyright 2018 Serge Bazanski  q3k@symbioticeda.com
+    Copyright 2018 whitequark  whitequark@whitequark.org
+    Copyright  c) 2012 Claire Xenia Wolf  claire@yosyshq.com
+  License: Apache-2.0, MIT
+
+  iree
+  Version: iree-3.7.0rc20250907
+  Source: https://github.com/iree-org/iree
+  PURL: pkg:github/iree-org/iree
+  Copyright:
+    Copyright 1998-2018 [Third party code and tools](docs credits_acknowledgements.rst)
+    Copyright 2014 Crytek
+    Copyright 2015-2020 ; NVIDIA CORPORATION. All rights reserved.
+    Copyright 2015-2022 Baldur Karlsson
+    Copyright 2016-2023 Martin Donath <martin.donath@squidfunk.com>
+    Copyright 2021 NVIDIA Corporation
+    Copyright 2020-2021 Optimism
+    Copyright copyright owner or entity authorized by
+  License: Apache-2.0
+
+  KeyMemRT-Compiler
+  Version: v0.0.1-b1ced7f7
+  Source: https://github.com/eymay/KeyMemRT-Compiler
+  PURL: pkg:github/eymay/keymemrt-compiler
+  Copyright:
+    Copyright 2012-2018 Clifford Wolf  clifford@clifford.at    dave@ds0.me
+  License: Apache-with-LLVM-Exception
+
+  mlir-hlo
+  Version: 6d9d780
+  Source: https://github.com/tensorflow/mlir-hlo
+  PURL: pkg:github/tensorflow/mlir-hlo
+  Copyright:
+    Copyright 2022 The TensorFlow Authors
+    Copyright 2022 The TensorFlow Authors. All Rights Reserved.
+  License: Apache-2.0
+
+  stream-hls
+  Version: 46ceee7
+  Source: https://github.com/ucla-vast/stream-hls
+  PURL: pkg:github/ucla-vast/stream-hls
+  License: MIT
+
+  tensorrt-incubator
+  Version: mlir-tensorrt-v0.4.4.dev202512190
+  Source: https://github.com/nvidia/tensorrt-incubator
+  PURL: pkg:github/nvidia/tensorrt-incubator
+  Copyright:
+    Copyright 2023-2025 NVIDIA CORPORATION   AFFILIATES
+  License: Apache-2.0
+
+  wpkit2
+  Version: 0.0.0.1
+  Source: https://pypi.org/project/wpkit2
+  PURL: pkg:pypi/wpkit2
+  License: UNKNOWN — requires manual review
+
+------------------------------------------------------------
+
+FULL LICENSE TEXTS
+
+--- Apache-2.0 ---
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+
+--- MIT ---
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+--- Apache-2.0 AND ISC AND BSD-3-Clause ---
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+
+--- BSD-3-Clause ---
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+--- ISC ---
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+
+
+--- Apache-with-LLVM-Exception ---
+
+Full license text available at: https://spdx.org/licenses/Apache-with-LLVM-Exception.html
+

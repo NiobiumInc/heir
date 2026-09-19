@@ -2,9 +2,9 @@ THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 ============================================================
 
 Project: heir
-Generated: 2026-08-25
+Generated: 2026-09-19
 Tool: SCANOSS (snippet detection with License dataset)
-Components: 15
+Components: 17
 
 This file lists all third-party software components detected
 in this repository, along with their licenses and copyright
@@ -21,10 +21,11 @@ These require manual review to determine licensing terms.
 
 LICENSE SUMMARY
 
-  Apache-2.0: 11 component(s)
+  Apache-2.0: 13 component(s)
   Apache-2.0 AND ISC AND BSD-3-Clause: 1 component(s)
+  Apache-2.0 WITH LLVM-exception: 1 component(s)
   Apache-with-LLVM-Exception: 1 component(s)
-  BSD-3-Clause: 2 component(s)
+  BSD-3-Clause: 3 component(s)
   ISC: 1 component(s)
   MIT: 3 component(s)
 
@@ -105,6 +106,12 @@ COMPONENT ATTRIBUTIONS
     Copyright 2014 Johann Glaser  Johann.Glaser@gmx.at
     Copyright 2017 Robert Ou  rqou@robertou.com
   License: Apache-2.0, Apache-2.0 AND ISC AND BSD-3-Clause, BSD-3-Clause, ISC
+
+  github.com/openxla/xla
+  Version: v0.0.0-20260506122910-be77ca663316
+  Source: https://proxy.golang.org/github.com/openxla/xla/@v/v0.0.0-20260506122910-be77ca663316.zip
+  PURL: pkg:golang/github.com/openxla/xla
+  License: Apache-2.0, BSD-3-Clause
 
   github.com/tuneinsight/ckks-noise-estimator/estimator
   Version: v0.0.0-20250512121910-53dd2367a25a
@@ -212,6 +219,24 @@ COMPONENT ATTRIBUTIONS
   PURL: pkg:pypi/wpkit2
   License: UNKNOWN — requires manual review
 
+  xla
+  Version: b6590fd
+  Source: https://github.com/openxla/xla
+  PURL: pkg:github/openxla/xla
+  Copyright:
+    (C) 1997;2001 Takuya OOURA (email: ooura@kurims.kyoto-u.ac.jp).
+    Copyright 2005-2019 ; NumPy Developers.
+    Copyright 2009-2022 NVIDIA Corporation.  All rights reserved.
+    Copyright 2011 ; Intel Corporation. All rights reserved.
+    Copyright 2015 ; The TensorFlow Authors.
+    Copyright 2015 The TensorFlow Authors.  All rights reserved.
+    Copyright 2015-2018 ; NVIDIA CORPORATION. All rights reserved.
+    Copyright 2018 ; The TensorFlow Authors.
+    Copyright 2018 The TensorFlow Authors.  All rights reserved.
+    Copyright    1991-2018 Unicode; Inc. All rights reserved.
+    Copyright copyright owner or entity authorized by
+  License: Apache-2.0, Apache-2.0 WITH LLVM-exception
+
 ------------------------------------------------------------
 
 FULL LICENSE TEXTS
@@ -313,4 +338,19 @@ limitations under the License.
 --- Apache-with-LLVM-Exception ---
 
 Full license text available at: https://spdx.org/licenses/Apache-with-LLVM-Exception.html
+
+
+--- Apache-2.0 WITH LLVM-exception ---
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 

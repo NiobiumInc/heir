@@ -2,20 +2,13 @@ THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 ============================================================
 
 Project: heir
-Generated: 2026-09-25
+Generated: 2026-10-05
 Tool: SCANOSS (snippet detection with License dataset)
 Components: 17
 
 This file lists all third-party software components detected
 in this repository, along with their licenses and copyright
 notices as required by those licenses.
-
-------------------------------------------------------------
-
-WARNING: The following component(s) have no license information.
-These require manual review to determine licensing terms.
-
-  - wpkit2 (https://pypi.org/project/wpkit2)
 
 ------------------------------------------------------------
 
@@ -28,6 +21,7 @@ LICENSE SUMMARY
   BSD-3-Clause: 3 component(s)
   ISC: 1 component(s)
   MIT: 3 component(s)
+  UNKNOWN: 1 component(s)
 
 ------------------------------------------------------------
 
@@ -103,9 +97,16 @@ COMPONENT ATTRIBUTIONS
   PURL: pkg:golang/github.com/google/heir
   Copyright:
     Copyright 2012 Eddie Hung  eddie@fpgeh.com
+    Copyright 2012 Martin Schm    lzer  martin@schmoelzer.at
     Copyright 2012-2018 Clifford Wolf  clifford@clifford.at    dave@ds0.me
     Copyright 2014 Johann Glaser  Johann.Glaser@gmx.at
     Copyright 2017 Robert Ou  rqou@robertou.com
+    Copyright 2018 David Shah  dave@ds0.me    david@symbioticeda.com
+    Copyright 2018 Icenowy Zheng  icenowy@aosc.io
+    Copyright 2018 Miodrag Milanovic  miodrag@symbioticeda.com
+    Copyright 2018 Ruben Undheim  ruben.undheim@gmail.com
+    Copyright 2018 Serge Bazanski  q3k@symbioticeda.com
+    Copyright 2018 whitequark  whitequark@whitequark.org
   License: Apache-2.0, Apache-2.0 AND ISC AND BSD-3-Clause, BSD-3-Clause, ISC
 
   github.com/openxla/xla
@@ -130,16 +131,16 @@ COMPONENT ATTRIBUTIONS
     Copyright 2010-2018 Max-Planck-Society
     Copyright 2012 - 2018 Clifford Wolf <clifford@clifford.at>; <dave@ds0.me>
     Copyright 2012 Eddie Hung  eddie@fpgeh.com
-    Copyright 2012 Martin Schm    lzer <martin@schmoelzer.at>
+    Copyright 2012 Martin Schm    lzer  martin@schmoelzer.at
     Copyright 2014 Johann Glaser  Johann.Glaser@gmx.at
     Copyright 2015 THL A29 Limited; a Tencent company; and Milo Yip. All rights reserved.
-    Copyright 2017 Robert Ou <rqou@robertou.com>
+    Copyright 2017 Robert Ou  rqou@robertou.com
     Copyright 2018 David Shah  dave@ds0.me    david@symbioticeda.com
     Copyright 2018 Icenowy Zheng  icenowy@aosc.io
-    Copyright 2018 Miodrag Milanovic <miodrag@symbioticeda.com>
-    Copyright 2018 Ruben Undheim <ruben.undheim@gmail.com>
-    Copyright 2018 Serge Bazanski <q3k@symbioticeda.com>
-    Copyright 2018 whitequark <whitequark@whitequark.org>
+    Copyright 2018 Miodrag Milanovic  miodrag@symbioticeda.com
+    Copyright 2018 Ruben Undheim  ruben.undheim@gmail.com
+    Copyright 2018 Serge Bazanski  q3k@symbioticeda.com
+    Copyright 2018 whitequark  whitequark@whitequark.org
     Copyright 2023 Google LLC
     Copyright copyright owner or entity authorized by
   License: Apache-2.0
@@ -157,9 +158,15 @@ COMPONENT ATTRIBUTIONS
   Source: https://pypi.org/project/heir-py
   PURL: pkg:pypi/heir-py
   Copyright:
+    Copyright 2004-2008 Ren   Nyffenegger
+    Copyright 2006-2013 Alexander Chemeris
     Copyright 2010-2018 Max-Planck-Society
     Copyright 2012 Claire Xenia Wolf  claire@yosyshq.com
+    Copyright 2012 Eddie Hung  eddie@fpgeh.com
+    Copyright 2012 Martin Schm    lzer  martin@schmoelzer.at
     Copyright 2012-2018 Clifford Wolf  clifford@clifford.at    dave@ds0.me
+    Copyright 2014 Johann Glaser  Johann.Glaser@gmx.at
+    Copyright 2015 THL A29 Limited a Tencent company and Milo Yip. All rights reserved
     Copyright 2017 Robert Ou  rqou@robertou.com
     Copyright 2018 David Shah  dave@ds0.me    david@symbioticeda.com
     Copyright 2018 Icenowy Zheng  icenowy@aosc.io
@@ -167,6 +174,7 @@ COMPONENT ATTRIBUTIONS
     Copyright 2018 Ruben Undheim  ruben.undheim@gmail.com
     Copyright 2018 Serge Bazanski  q3k@symbioticeda.com
     Copyright 2018 whitequark  whitequark@whitequark.org
+    Copyright 2023 Google LLC
     Copyright  c) 2012 Claire Xenia Wolf  claire@yosyshq.com
   License: Apache-2.0, MIT
 
@@ -190,7 +198,17 @@ COMPONENT ATTRIBUTIONS
   Source: https://github.com/eymay/KeyMemRT-Compiler
   PURL: pkg:github/eymay/keymemrt-compiler
   Copyright:
+    Copyright 2012 Eddie Hung  eddie@fpgeh.com
+    Copyright 2012 Martin Schm    lzer  martin@schmoelzer.at
     Copyright 2012-2018 Clifford Wolf  clifford@clifford.at    dave@ds0.me
+    Copyright 2014 Johann Glaser  Johann.Glaser@gmx.at
+    Copyright 2017 Robert Ou  rqou@robertou.com
+    Copyright 2018 David Shah  dave@ds0.me    david@symbioticeda.com
+    Copyright 2018 Icenowy Zheng  icenowy@aosc.io
+    Copyright 2018 Miodrag Milanovic  miodrag@symbioticeda.com
+    Copyright 2018 Ruben Undheim  ruben.undheim@gmail.com
+    Copyright 2018 Serge Bazanski  q3k@symbioticeda.com
+    Copyright 2018 whitequark  whitequark@whitequark.org
   License: Apache-with-LLVM-Exception
 
   mlir-hlo
@@ -220,7 +238,7 @@ COMPONENT ATTRIBUTIONS
   Version: 0.0.0.1
   Source: https://pypi.org/project/wpkit2
   PURL: pkg:pypi/wpkit2
-  License: UNKNOWN — requires manual review
+  License: UNKNOWN
 
   xla
   Version: b6590fd
@@ -341,6 +359,11 @@ limitations under the License.
 --- Apache-with-LLVM-Exception ---
 
 Full license text available at: https://spdx.org/licenses/Apache-with-LLVM-Exception.html
+
+
+--- UNKNOWN ---
+
+Full license text available at: https://spdx.org/licenses/UNKNOWN.html
 
 
 --- Apache-2.0 WITH LLVM-exception ---

@@ -174,7 +174,8 @@ LogicalResult LattigoEmitter::translate(Operation& op) {
               CKKSAddNewOp, CKKSSubNewOp, CKKSMulNewOp, CKKSAddOp, CKKSSubOp,
               CKKSMulOp, CKKSRelinearizeOp, CKKSRescaleOp, CKKSRotateOp,
               CKKSRelinearizeNewOp, CKKSRescaleNewOp, CKKSRotateNewOp,
-              CKKSLinearTransformOp, CKKSChebyshevOp, CKKSBootstrapOp,
+              CKKSPrepareLinearTransformOp, CKKSApplyLinearTransformOp,
+              CKKSChebyshevOp, CKKSBootstrapOp,
               CKKSNewBootstrappingParametersFromLiteralOp,
               CKKSGenEvaluationKeysBootstrappingOp,
               CKKSNewBootstrappingEvaluatorOp>(
@@ -1787,31 +1788,27 @@ LogicalResult LattigoEmitter::printOperation(BGVEncodeOp op) {
     maxSlotsName = std::to_string(numSlotsAttr.getInt());
   }
 
-  std::string packedName = valueName;
-  // EncodeOp requires its argument to be a slice of int64 so we emit a loop
-  // implementing type conversion if needed.
-  if (getElementTypeOrSelf(op.getValue().getType()).getIntOrFloatBitWidth() !=
-      64) {
-    packedName = valueName + "_" + plaintextName + "_packed";
-    os << packedName << " := make([]int64, ";
-    os << maxSlotsName << ")\n";
-    os << "for i := range " << packedName << " {\n";
+  std::string packedName = valueName + "_" + plaintextName + "_packed";
+  // EncodeOp requires its argument to be a slice of int64, and we emit a loop
+  // for cyclic repetition and type conversion.
+  os << packedName << " := make([]int64, ";
+  os << maxSlotsName << ")\n";
+  os << "for i := range " << packedName << " {\n";
 
-    // packedName[i] = int64(value[i])
-    auto valueNameAtI = valueName + "[i % len(" + valueName + ")]";
-    auto packedNameAtI = packedName + "[i]";
-    os.indent();
-    if (getElementTypeOrSelf(op.getValue().getType()).getIntOrFloatBitWidth() ==
-        1) {
-      emitIf(
-          valueNameAtI, [&]() { os << packedNameAtI << " = int64(1)\n"; },
-          [&]() { os << packedNameAtI << " = int64(0)\n"; });
-    } else {
-      os << packedNameAtI << " = int64(" << valueNameAtI << ")\n";
-    }
-    os.unindent();
-    os << "}\n";
+  // packedName[i] = int64(value[i % len(value)])
+  auto valueNameAtI = valueName + "[i % len(" + valueName + ")]";
+  auto packedNameAtI = packedName + "[i]";
+  os.indent();
+  if (getElementTypeOrSelf(op.getValue().getType()).getIntOrFloatBitWidth() ==
+      1) {
+    emitIf(
+        valueNameAtI, [&]() { os << packedNameAtI << " = int64(1)\n"; },
+        [&]() { os << packedNameAtI << " = int64(0)\n"; });
+  } else {
+    os << packedNameAtI << " = int64(" << valueNameAtI << ")\n";
   }
+  os.unindent();
+  os << "}\n";
 
   // set the scale of plaintext
   auto scale = op.getScale();
@@ -2082,7 +2079,7 @@ LogicalResult LattigoEmitter::printOperation(CKKSEncodeOp op) {
   auto valueName = getName(op.getValue());
   auto maxSlotsName = getName(newPlaintextOp.getParams()) + ".MaxSlots()";
   auto numSlotsAttr = dyn_cast_or_null<IntegerAttr>(
-      op->getParentOfType<ModuleOp>()->getAttr(kActualSlotCountAttrName));
+      op->getParentOfType<ModuleOp>()->getAttr(kRequestedSlotCountAttrName));
   if (numSlotsAttr) {
     maxSlotsName = std::to_string(numSlotsAttr.getInt());
     imports.insert(std::string(kRingImport));
@@ -2092,37 +2089,33 @@ LogicalResult LattigoEmitter::printOperation(CKKSEncodeOp op) {
        << "}\n";
   }
 
-  std::string packedName = valueName;
-  // EncodeOp requires its argument to be a slice of int64 so we emit a loop
-  // implementing type conversion if needed.
-  if (getElementTypeOrSelf(op.getValue().getType()).getIntOrFloatBitWidth() !=
-      64) {
-    packedName = valueName + "_" + plaintextName + "_packed";
-    os << packedName << " := make([]float64, ";
-    os << maxSlotsName << ")\n";
-    os << "for i := range " << packedName << " {\n";
-    // packedName[i] = float64(value[i])
-    auto valueNameAtI = valueName + "[i % len(" + valueName + ")]";
-    auto packedNameAtI = packedName + "[i]";
-    os.indent();
-    if (getElementTypeOrSelf(op.getValue().getType()).getIntOrFloatBitWidth() ==
-        1) {
-      const auto* boolToFloat64Template = R"GO(
+  std::string packedName = valueName + "_" + plaintextName + "_packed";
+  // EncodeOp requires its argument to be a slice of float64, and we emit a loop
+  // for cyclic repetition and type conversion.
+  os << packedName << " := make([]float64, ";
+  os << maxSlotsName << ")\n";
+  os << "for i := range " << packedName << " {\n";
+  // packedName[i] = float64(value[i % len(value)])
+  auto valueNameAtI = valueName + "[i % len(" + valueName + ")]";
+  auto packedNameAtI = packedName + "[i]";
+  os.indent();
+  if (getElementTypeOrSelf(op.getValue().getType()).getIntOrFloatBitWidth() ==
+      1) {
+    const auto* boolToFloat64Template = R"GO(
       if {0} {
         {1} = 1.0
       } else {
         {1} = 0.0
       }
     )GO";
-      auto res =
-          llvm::formatv(boolToFloat64Template, valueNameAtI, packedNameAtI);
-      os << res;
-    } else {
-      os << packedNameAtI << " = float64(" << valueNameAtI << ")\n";
-    }
-    os.unindent();
-    os << "}\n";
+    auto res =
+        llvm::formatv(boolToFloat64Template, valueNameAtI, packedNameAtI);
+    os << res;
+  } else {
+    os << packedNameAtI << " = float64(" << valueNameAtI << ")\n";
   }
+  os.unindent();
+  os << "}\n";
 
   // set the scale of plaintext
   imports.insert(std::string(kMathImport));
@@ -2287,22 +2280,12 @@ LogicalResult LattigoEmitter::printOperation(CKKSBootstrapOp op) {
   return success();
 }
 
-LogicalResult LattigoEmitter::printOperation(CKKSLinearTransformOp op) {
-  imports.insert(std::string(kLintransImport));
-
-  // Get the evaluator, input, and parameters from context
-  auto evaluatorName = getName(op.getEvaluator());
-  auto encoderName = getName(op.getEncoder());
-  auto inputName = getName(op.getInput());
-  auto outputName = getName(op.getOutput());
-  auto diagonalsName = getName(op.getDiagonals());
-
-  // Get the diagonals type to determine dimensions
-  auto diagonalsType = cast<ShapedType>(op.getDiagonals().getType());
-  if (diagonalsType.getRank() != 2) {
-    return op.emitOpError("Expected 2D tensor for diagonals");
-  }
-
+void LattigoEmitter::printDiagonalsUnpack(
+    llvm::StringRef diagonalsName, ShapedType diagonalsType,
+    DenseI32ArrayAttr diagonalIndicesAttr,
+    DenseI32ArrayAttr sourceRowIndicesAttr, llvm::StringRef slotsExpr,
+    std::optional<int64_t> staticSlots, llvm::StringRef prefix,
+    std::string& diagonalsMapName) {
   int64_t slotsPerDiagonal = diagonalsType.getShape()[1];
   Type elementType = diagonalsType.getElementType();
   bool isF64 = false;
@@ -2312,67 +2295,173 @@ LogicalResult LattigoEmitter::printOperation(CKKSLinearTransformOp op) {
     }
   }
 
-  // Generate unique variable names
-  std::string diagonalsMapName = outputName + "_diags";
-  std::string diagonalIndices = outputName + "_diags_idx";
-  std::string ltParamsName = outputName + "_params";
-  std::string ltName = outputName + "_lt";
-  std::string ltEvalName = outputName + "_lteval";
-  std::string errName = getErrName();
-  std::string slotsName = outputName + "_slots";
+  diagonalsMapName = std::string(prefix) + "_diags";
+  std::string diagonalIndices = std::string(prefix) + "_diags_idx";
+  std::string sourceRowsName = std::string(prefix) + "_source_rows";
+  std::string slotsName = std::string(prefix) + "_slots";
 
-  os << diagonalIndices
-     << " := " << printDenseI32ArrayAttr(op.getDiagonalIndicesAttr()) << "\n";
-  os << slotsName << " := 1 << " << inputName << ".LogDimensions.Cols\n";
+  os << diagonalIndices << " := " << printDenseI32ArrayAttr(diagonalIndicesAttr)
+     << "\n";
+  if (sourceRowIndicesAttr) {
+    os << sourceRowsName
+       << " := " << printDenseI32ArrayAttr(sourceRowIndicesAttr) << "\n";
+  }
+
+  bool isStaticFullF64 =
+      staticSlots.has_value() && *staticSlots == slotsPerDiagonal && isF64;
+  if (!isStaticFullF64) {
+    os << slotsName << " := " << slotsExpr << "\n";
+  }
+
   os << diagonalsMapName << " := make(lintrans.Diagonals[float64])\n";
-  os << "for i, diagIndex := range " << diagonalIndices << " {\n";
-  os.indent();
-  if (isF64) {
-    os << diagonalsMapName << "[diagIndex] = " << diagonalsName << "[i*"
-       << slotsPerDiagonal << ":i*" << slotsPerDiagonal << " + " << slotsName
-       << "]\n";
-  } else {
-    os << "diag := make([]float64, " << slotsName << ")\n";
-    os << "for j := 0; j < " << slotsName << "; j++ {\n";
+
+  auto emitDiagonalsLoop = [&](bool isTiled) {
+    os << "for i, diagIndex := range " << diagonalIndices << " {\n";
     os.indent();
-    os << "diag[j] = float64(" << diagonalsName << "[i*" << slotsPerDiagonal
-       << " + j])\n";
+    if (sourceRowIndicesAttr) {
+      os << "sourceRow := " << sourceRowsName << "[i]\n";
+    } else {
+      os << "sourceRow := i\n";
+    }
+    if (!isTiled && isF64) {
+      os << diagonalsMapName << "[diagIndex] = " << diagonalsName
+         << "[sourceRow*" << slotsPerDiagonal << ":(sourceRow + 1)*"
+         << slotsPerDiagonal << "]\n";
+    } else {
+      os << "diag := make([]float64, " << slotsName << ")\n";
+      os << "for j := 0; j < " << slotsName << "; j++ {\n";
+      os.indent();
+      std::string offsetExpr =
+          isTiled ? "(j % " + std::to_string(slotsPerDiagonal) + ")" : "j";
+      if (isF64) {
+        os << "diag[j] = " << diagonalsName << "[sourceRow*" << slotsPerDiagonal
+           << " + " << offsetExpr << "]\n";
+      } else {
+        os << "diag[j] = float64(" << diagonalsName << "[sourceRow*"
+           << slotsPerDiagonal << " + " << offsetExpr << "])\n";
+      }
+      os.unindent();
+      os << "}\n";
+      os << diagonalsMapName << "[diagIndex] = diag\n";
+    }
     os.unindent();
     os << "}\n";
-    os << diagonalsMapName << "[diagIndex] = diag\n";
+  };
+
+  if (staticSlots.has_value()) {
+    bool isTiled = (*staticSlots != slotsPerDiagonal);
+    emitDiagonalsLoop(isTiled);
+  } else {
+    imports.insert(std::string(kFmtImport));
+    os << "if " << slotsName << " < " << slotsPerDiagonal << " || " << slotsName
+       << " % " << slotsPerDiagonal << " != 0 {\n";
+    os.indent();
+    os << "panic(fmt.Sprintf(\"linear transform slots (%d) must be a non-zero "
+          "multiple of diagonal length ("
+       << slotsPerDiagonal << ")\", " << slotsName << "))\n";
+    os.unindent();
+    os << "}\n";
+    os << "if " << slotsName << " == " << slotsPerDiagonal << " {\n";
+    os.indent();
+    emitDiagonalsLoop(/*isTiled=*/false);
+    os.unindent();
+    os << "} else {\n";
+    os.indent();
+    emitDiagonalsLoop(/*isTiled=*/true);
+    os.unindent();
+    os << "}\n";
   }
-  os.unindent();
-  os << "}\n";
+}
+
+void LattigoEmitter::printLinearTransformEvaluate(
+    llvm::StringRef evaluatorName, llvm::StringRef inputName,
+    llvm::StringRef transformationName, llvm::StringRef outputName) {
+  imports.insert(std::string(kLintransImport));
+
+  std::string ltEvalName = std::string(outputName) + "_lteval";
+  std::string errName = getErrName();
+
+  os << ltEvalName << " := lintrans.NewEvaluator(" << evaluatorName << ")\n";
+  if (declaredVars.contains(std::string(outputName))) {
+    os << outputName << ", " << errName << " = " << ltEvalName
+       << ".EvaluateNew(" << inputName << ", " << transformationName << ")\n";
+  } else {
+    os << outputName << ", " << errName << " := " << ltEvalName
+       << ".EvaluateNew(" << inputName << ", " << transformationName << ")\n";
+    if (outputName != "_") {
+      declaredVars.insert(std::string(outputName));
+    }
+  }
+  printErrPanic(errName);
+}
+
+LogicalResult LattigoEmitter::printOperation(CKKSPrepareLinearTransformOp op) {
+  imports.insert(std::string(kLintransImport));
+  imports.insert(std::string(kRingImport));
+  imports.insert(std::string(kRlweImport));
+
+  auto paramsName = getName(op.getParams());
+  auto encoderName = getName(op.getEncoder());
+  auto diagonalsName = getName(op.getDiagonals());
+  auto outputName = getName(op.getTransformation());
+
+  auto diagonalsType = cast<ShapedType>(op.getDiagonals().getType());
+  if (diagonalsType.getRank() != 2) {
+    return op.emitOpError("Expected 2D tensor for diagonals");
+  }
+
+  int64_t logSlots = op.getLogSlots().getInt();
+  int64_t levelQ = op.getLevelQ().getInt();
+  int64_t logBSGS = op.getLogBabyStepGiantStepRatio().getInt();
+  int64_t staticSlots = int64_t{1} << logSlots;
+
+  std::string diagonalsMapName;
+  printDiagonalsUnpack(
+      diagonalsName, diagonalsType, op.getDiagonalIndicesAttr(),
+      op.getSourceRowIndicesAttr(), "1 << " + std::to_string(logSlots),
+      staticSlots, outputName, diagonalsMapName);
+
+  std::string ltParamsName = outputName + "_params";
+  std::string errName = getErrName();
 
   os << ltParamsName << " := lintrans.Parameters{\n";
   os.indent();
   os << "DiagonalsIndexList: " << diagonalsMapName
      << ".DiagonalsIndexList(),\n";
-  os << "LevelQ: " << inputName << ".Level(),\n";
-  os << "LevelP: " << evaluatorName << ".GetRLWEParameters().MaxLevelP(),\n";
-  os << "Scale: rlwe.NewScale(" << evaluatorName << ".GetRLWEParameters().Q()["
-     << inputName << ".Level()]),\n";
-  os << "LogDimensions: " << inputName << ".LogDimensions,\n";
-  os << "LogBabyStepGiantStepRatio: "
-     << op.getLogBabyStepGiantStepRatio().getInt() << ",\n";
+  os << "LevelQ: " << levelQ << ",\n";
+  os << "LevelP: " << paramsName << ".GetRLWEParameters().MaxLevelP(),\n";
+  os << "Scale: rlwe.NewScale(" << paramsName << ".GetRLWEParameters().Q()["
+     << levelQ << "]),\n";
+  os << "LogDimensions: ring.Dimensions{Rows: 0, Cols: " << logSlots << "},\n";
+  os << "LogBabyStepGiantStepRatio: " << logBSGS << ",\n";
   os.unindent();
   os << "}\n";
 
-  os << ltName << " := lintrans.NewTransformation(" << evaluatorName
-     << ".GetRLWEParameters(), " << ltParamsName << ")\n";
-  os << errName << " := lintrans.Encode[float64](" << encoderName << ", "
-     << diagonalsMapName << ", " << ltName << ")\n";
-  printErrPanic(errName);
-  os << "\n";
-
-  os << ltEvalName << " := lintrans.NewEvaluator(" << evaluatorName << ")\n";
-  os << outputName << ", " << errName << " := " << ltEvalName
-     << ".EvaluateNew(";
-  os << inputName << ", " << ltName << ")\n";
-  printErrPanic(errName);
-  if (outputName != "_") {
-    declaredVars.insert(outputName);
+  if (declaredVars.contains(outputName)) {
+    os << outputName << " = lintrans.NewTransformation(" << paramsName
+       << ".GetRLWEParameters(), " << ltParamsName << ")\n";
+  } else {
+    os << outputName << " := lintrans.NewTransformation(" << paramsName
+       << ".GetRLWEParameters(), " << ltParamsName << ")\n";
+    if (outputName != "_") {
+      declaredVars.insert(outputName);
+    }
   }
+
+  os << errName << " := lintrans.Encode[float64](" << encoderName << ", "
+     << diagonalsMapName << ", " << outputName << ")\n";
+  printErrPanic(errName);
+  return success();
+}
+
+LogicalResult LattigoEmitter::printOperation(CKKSApplyLinearTransformOp op) {
+  auto evaluatorName = getName(op.getEvaluator());
+  auto inputName = getName(op.getInput());
+  auto transformationName = getName(op.getTransformation());
+  auto outputName = getName(op.getOutput());
+
+  printLinearTransformEvaluate(evaluatorName, inputName, transformationName,
+                               outputName);
   return success();
 }
 
@@ -2661,6 +2750,10 @@ FailureOr<std::string> LattigoEmitter::convertType(Type type) {
           [&](auto ty) { return std::string("ckks.Parameters"); })
       .Case<CKKSBootstrappingParameterType>(
           [&](auto ty) { return std::string("bootstrapping.Parameters"); })
+      .Case<CKKSLinearTransformationType>([&](auto ty) {
+        imports.insert(std::string(kLintransImport));
+        return std::string("lintrans.LinearTransformation");
+      })
       .Case<IntegerType>([&](auto ty) -> FailureOr<std::string> {
         auto width = ty.getWidth();
         if (width == 1) {
@@ -2754,6 +2847,8 @@ struct TranslateOptions {
 static llvm::ManagedStatic<TranslateOptions> translateOptions;
 
 LogicalResult LattigoEmitter::printOperation(preprocessing::LoadResourceOp op) {
+  if (op.getDirectory())
+    return op.emitOpError("resource directories are not supported by Lattigo");
   return success();
 }
 

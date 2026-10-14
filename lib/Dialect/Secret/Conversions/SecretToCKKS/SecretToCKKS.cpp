@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <numeric>
 #include <optional>
 #include <string>
 #include <utility>
@@ -31,6 +32,7 @@
 #include "lib/Utils/Polynomial/Polynomial.h"
 #include "llvm/include/llvm/ADT/STLExtras.h"             // from @llvm-project
 #include "llvm/include/llvm/ADT/SmallVector.h"           // from @llvm-project
+#include "llvm/include/llvm/Support/MathExtras.h"        // from @llvm-project
 #include "llvm/include/llvm/Support/raw_ostream.h"       // from @llvm-project
 #include "mlir/include/mlir/Dialect/Arith/IR/Arith.h"    // from @llvm-project
 #include "mlir/include/mlir/IR/Attributes.h"             // from @llvm-project
@@ -61,8 +63,9 @@ namespace {
 
 // Returns an RLWE ring given the specified number of bits needed and polynomial
 // modulus degree.
-FailureOr<polynomial::RingAttr> getRlweRNSRing(
-    MLIRContext* ctx, const std::vector<int64_t>& primes, int minSlotCount) {
+FailureOr<polynomial::RingAttr> getRlweRNSRing(MLIRContext* ctx,
+                                               ArrayRef<int64_t> primes,
+                                               int minSlotCount) {
   // monomial
   std::vector<polynomial::IntMonomial> monomials;
   monomials.emplace_back(1, minSlotCount);
@@ -72,9 +75,16 @@ FailureOr<polynomial::RingAttr> getRlweRNSRing(
   polynomial::IntPolynomial xnPlusOne = result.value();
 
   // moduli chain
+  SmallVector<int64_t> bitWidths = ckks::getModuliBitWidths(primes);
+  int64_t maxBitWidth = *llvm::max_element(bitWidths);
+  // ModArithType requires the underlying integer storage type to have at least
+  // 1 extra bit beyond the modulus bit width, and RNSType requires all basis
+  // limbs to share the same storage type. Round up to 32 or 64 bits.
+  unsigned storageBitWidth =
+      std::max<unsigned>(32, llvm::PowerOf2Ceil(maxBitWidth + 1));
   SmallVector<Type, 4> modTypes;
   for (auto prime : primes) {
-    auto type = IntegerType::get(ctx, 64);
+    auto type = IntegerType::get(ctx, storageBitWidth);
     modTypes.push_back(
         mod_arith::ModArithType::get(ctx, IntegerAttr::get(type, prime)));
   }
@@ -86,11 +96,13 @@ FailureOr<polynomial::RingAttr> getRlweRNSRing(
 }
 
 polynomial::RingAttr getRlweRNSRingWithLevel(polynomial::RingAttr ringAttr,
+                                             ArrayRef<int32_t> moduliPerLevel,
                                              int level) {
   auto rnsType = cast<rns::RNSType>(ringAttr.getCoefficientType());
-
+  int32_t numModuli = std::accumulate(moduliPerLevel.begin(),
+                                      moduliPerLevel.begin() + level + 1, 0);
   auto newRnsType = rns::RNSType::get(
-      rnsType.getContext(), rnsType.getBasisTypes().take_front(level + 1));
+      rnsType.getContext(), rnsType.getBasisTypes().take_front(numModuli));
   return polynomial::RingAttr::get(newRnsType, ringAttr.getPolynomialModulus());
 }
 
@@ -99,9 +111,12 @@ polynomial::RingAttr getRlweRNSRingWithLevel(polynomial::RingAttr ringAttr,
 class SecretToCKKSTypeConverter
     : public UniquelyNamedAttributeAwareTypeConverter {
  public:
-  SecretToCKKSTypeConverter(MLIRContext* ctx, polynomial::RingAttr rlweRing)
+  SecretToCKKSTypeConverter(MLIRContext* ctx, polynomial::RingAttr rlweRing,
+                            SmallVector<int32_t> moduliPerLevel)
       : UniquelyNamedAttributeAwareTypeConverter(
-            mgmt::MgmtDialect::kArgMgmtAttrName) {
+            mgmt::MgmtDialect::kArgMgmtAttrName),
+        ring_(rlweRing),
+        moduliPerLevel_(std::move(moduliPerLevel)) {
     addConversion([](Type type, Attribute attr) -> std::optional<Type> {
       if (isa<secret::SecretType>(type)) return std::nullopt;
       return type;
@@ -124,8 +139,6 @@ class SecretToCKKSTypeConverter
     addConversion([this](secret::SecretType type, mgmt::MgmtAttr mgmtAttr) {
       return convertSecretTypeWithMgmtAttr(type, mgmtAttr);
     });
-
-    ring_ = rlweRing;
   }
 
   Type convertSecretTypeWithMgmtAttr(secret::SecretType type,
@@ -160,16 +173,20 @@ class SecretToCKKSTypeConverter
           tensorValueType.getElementType());
     }
 
+    auto levelRing = getRlweRNSRingWithLevel(ring_, moduliPerLevel_, level);
+    int currentModulusIdx = cast<rns::RNSType>(levelRing.getCoefficientType())
+                                .getBasisTypes()
+                                .size() -
+                            1;
     auto ctType = lwe::LWECiphertextType::get(
         ctx,
         lwe::PlaintextSpaceAttr::get(
             ctx, plaintextRing,
             lwe::InverseCanonicalEncodingAttr::get(ctx, scale)),
-        lwe::CiphertextSpaceAttr::get(ctx,
-                                      getRlweRNSRingWithLevel(ring_, level),
+        lwe::CiphertextSpaceAttr::get(ctx, levelRing,
                                       lwe::LweEncryptionType::mix, dimension),
         lwe::KeyAttr::get(ctx, 0),
-        lwe::ModulusChainAttr::get(ctx, modulusChain, level));
+        lwe::ModulusChainAttr::get(ctx, modulusChain, currentModulusIdx));
 
     if (tensorValueType) {
       // A rank-1 tensor is interpreted as a single ciphertext
@@ -189,6 +206,7 @@ class SecretToCKKSTypeConverter
 
  private:
   polynomial::RingAttr ring_;
+  SmallVector<int32_t> moduliPerLevel_;
 };
 
 class SecretGenericPlaintextDivision
@@ -250,119 +268,6 @@ class SecretGenericPlaintextDivision
   }
 };
 
-struct LinearTransformOpConversion
-    : public ContextAwareOpConversionPattern<secret::GenericOp> {
-  LinearTransformOpConversion(const ContextAwareTypeConverter& typeConverter_,
-                              MLIRContext* context, int64_t ringDim,
-                              PatternBenefit benefit = 1)
-      : ContextAwareOpConversionPattern<secret::GenericOp>(typeConverter_,
-                                                           context, benefit),
-        ringDim(ringDim) {}
-
-  LogicalResult matchAndRewrite(
-      secret::GenericOp op, OpAdaptor adaptor,
-      ContextAwareConversionPatternRewriter& rewriter) const override {
-    if (op.getBody()->getOperations().size() > 2) {
-      return failure();
-    }
-
-    auto& innerOp = op.getBody()->getOperations().front();
-    auto ltOp = dyn_cast<kernel::LinearTransformOp>(innerOp);
-    if (!ltOp) {
-      return failure();
-    }
-
-    // Convert inputs
-    SmallVector<Value> inputs;
-    for (Value operand : ltOp->getOperands()) {
-      if (auto* secretArg = op.getOpOperandForBlockArgument(operand)) {
-        inputs.push_back(adaptor.getInputs()[secretArg->getOperandNumber()]);
-      } else {
-        inputs.push_back(operand);
-      }
-    }
-
-    // Convert result types
-    SmallVector<Type> resultTypes;
-    if (failed(getTypeConverter()->convertTypes(op.getResultTypes(),
-                                                op.getResults(), resultTypes)))
-      return op.emitOpError(
-          "failed to convert result types to CKKS ciphertext types");
-
-    // Preserve attributes (similar to SecretGenericOpConversion)
-    SmallVector<NamedAttribute> attrsToPreserve;
-    for (auto& namedAttr : ltOp->getDialectAttrs()) {
-      attrsToPreserve.push_back(namedAttr);
-    }
-    for (auto attrName : ltOp.getAttributeNames()) {
-      if (attrName == "diagonals")
-        continue;  // We will handle diagonals separately
-      if (auto attr = ltOp->getAttr(attrName)) {
-        attrsToPreserve.push_back(rewriter.getNamedAttr(attrName, attr));
-      }
-    }
-
-    // Pad diagonals
-    auto diagonalsAttr = cast<DenseElementsAttr>(ltOp.getDiagonals());
-    auto diagonalsType = cast<RankedTensorType>(diagonalsAttr.getType());
-    auto shape = diagonalsType.getShape();
-    int64_t numDiagonals = shape[0];
-    int64_t numCols = shape[1];
-
-    int64_t actualSlots = ringDim / 2;  // CKKS assumption
-
-    DenseElementsAttr newDiagonalsAttr;
-    if (numCols == actualSlots) {
-      newDiagonalsAttr = diagonalsAttr;
-    } else {
-      if (numCols > actualSlots) {
-        return ltOp.emitOpError("diagonals slot size (")
-               << numCols << ") is larger than actual slots (" << actualSlots
-               << ")";
-      }
-      SmallVector<Attribute> paddedValues;
-      auto elementValues = diagonalsAttr.getValues<Attribute>();
-      auto elemType = diagonalsType.getElementType();
-      Attribute zeroAttr = rewriter.getZeroAttr(elemType);
-
-      for (int64_t i = 0; i < numDiagonals; ++i) {
-        for (int64_t j = 0; j < numCols; ++j) {
-          paddedValues.push_back(elementValues[i * numCols + j]);
-        }
-        for (int64_t j = numCols; j < actualSlots; ++j) {
-          paddedValues.push_back(zeroAttr);
-        }
-      }
-
-      auto newDiagonalsType =
-          RankedTensorType::get({numDiagonals, actualSlots}, elemType);
-      newDiagonalsAttr = DenseElementsAttr::get(newDiagonalsType, paddedValues);
-    }
-    attrsToPreserve.push_back(
-        rewriter.getNamedAttr("diagonals", newDiagonalsAttr));
-
-    // Handle mgmt attrs
-    convertArrayOfDicts(op.getAllResultAttrsAttr(), attrsToPreserve);
-    convertArrayOfDicts(op.getAllOperandAttrsAttr(), attrsToPreserve);
-    DenseSet<StringRef> seenNames;
-    SmallVector<NamedAttribute> dedupedAttrsToPreserve;
-    for (auto attr : llvm::reverse(attrsToPreserve)) {
-      if (seenNames.insert(attr.getName().getValue()).second) {
-        dedupedAttrsToPreserve.push_back(attr);
-      }
-    }
-    std::reverse(dedupedAttrsToPreserve.begin(), dedupedAttrsToPreserve.end());
-    auto newLtOp = kernel::LinearTransformOp::create(
-        rewriter, ltOp.getLoc(), resultTypes, inputs, dedupedAttrsToPreserve);
-
-    rewriter.replaceOp(op, newLtOp->getResults());
-    return success();
-  }
-
- private:
-  int64_t ringDim;
-};
-
 struct SecretToCKKS : public impl::SecretToCKKSBase<SecretToCKKS> {
   using SecretToCKKSBase::SecretToCKKSBase;
 
@@ -399,7 +304,9 @@ struct SecretToCKKS : public impl::SecretToCKKSBase<SecretToCKKS> {
     // (i.e., the FuncOp).
     // Otherwise the typeConverter won't find the proper type information
     // and fail
-    SecretToCKKSTypeConverter typeConverter(context, rlweRing.value());
+    SecretToCKKSTypeConverter typeConverter(
+        context, rlweRing.value(),
+        ckks::getModuliPerLevelOrDefault(schemeParamAttr));
     RewritePatternSet patterns(context);
     ConversionTarget target(*context);
     addSecretToSchemeDefaultConversionTargetsAndPatterns(patterns, target,
@@ -426,11 +333,9 @@ struct SecretToCKKS : public impl::SecretToCKKSBase<SecretToCKKS> {
         SecretGenericOpRotateConversion<ckks::RotateOp>,
         SecretGenericPlaintextDivision,
         SecretGenericOpConversion<kernel::EvalChebyshevOp>,
-        SecretGenericOpLevelReduceConversion<ckks::LevelReduceOp>>(
-        typeConverter, context);
-
-    int64_t ringDim = 1 << schemeParamAttr.getLogN();
-    patterns.add<LinearTransformOpConversion>(typeConverter, context, ringDim);
+        SecretGenericOpLevelReduceConversion<ckks::LevelReduceOp>,
+        SecretGenericOpConversion<kernel::LinearTransformOp>>(typeConverter,
+                                                              context);
 
     patterns.add<ConvertClientConceal>(typeConverter, context, usePublicKey,
                                        rlweRing.value());

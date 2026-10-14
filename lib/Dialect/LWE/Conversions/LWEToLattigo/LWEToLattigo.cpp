@@ -13,6 +13,7 @@
 #include "lib/Dialect/CKKS/IR/CKKSDialect.h"
 #include "lib/Dialect/CKKS/IR/CKKSOps.h"
 #include "lib/Dialect/Kernel/IR/KernelOps.h"
+#include "lib/Dialect/Kernel/IR/KernelTypes.h"
 #include "lib/Dialect/LWE/IR/LWEAttributes.h"
 #include "lib/Dialect/LWE/IR/LWEDialect.h"
 #include "lib/Dialect/LWE/IR/LWEOps.h"
@@ -25,15 +26,14 @@
 #include "lib/Dialect/Orion/IR/OrionOps.h"
 #include "lib/Dialect/Preprocessing/Conversions/Util.h"
 #include "lib/Dialect/Preprocessing/IR/PreprocessingDialect.h"
-#include "lib/Dialect/Preprocessing/IR/PreprocessingOps.h"
 #include "lib/Dialect/Preprocessing/IR/PreprocessingTypes.h"
 #include "lib/Utils/ConversionUtils.h"
 #include "lib/Utils/Utils.h"
 #include "llvm/include/llvm/ADT/STLExtras.h"             // from @llvm-project
 #include "llvm/include/llvm/Support/Debug.h"             // from @llvm-project
+#include "llvm/include/llvm/Support/MathExtras.h"        // from @llvm-project
 #include "mlir/include/mlir/Dialect/Arith/IR/Arith.h"    // from @llvm-project
 #include "mlir/include/mlir/Dialect/Func/IR/FuncOps.h"   // from @llvm-project
-#include "mlir/include/mlir/Dialect/Tensor/IR/Tensor.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Attributes.h"             // from @llvm-project
 #include "mlir/include/mlir/IR/Builders.h"               // from @llvm-project
 #include "mlir/include/mlir/IR/BuiltinAttributes.h"      // from @llvm-project
@@ -42,9 +42,10 @@
 #include "mlir/include/mlir/IR/PatternMatch.h"           // from @llvm-project
 #include "mlir/include/mlir/IR/TypeUtilities.h"          // from @llvm-project
 #include "mlir/include/mlir/IR/Value.h"                  // from @llvm-project
-#include "mlir/include/mlir/Support/LLVM.h"              // from @llvm-project
-#include "mlir/include/mlir/Support/LogicalResult.h"     // from @llvm-project
-#include "mlir/include/mlir/Support/WalkResult.h"        // from @llvm-project
+#include "mlir/include/mlir/Interfaces/FunctionInterfaces.h"  // from @llvm-project
+#include "mlir/include/mlir/Support/LLVM.h"           // from @llvm-project
+#include "mlir/include/mlir/Support/LogicalResult.h"  // from @llvm-project
+#include "mlir/include/mlir/Support/WalkResult.h"     // from @llvm-project
 #include "mlir/include/mlir/Transforms/DialectConversion.h"  // from @llvm-project
 #include "mlir/include/mlir/Transforms/WalkPatternRewriteDriver.h"  // from @llvm-project
 
@@ -75,6 +76,9 @@ class ToLattigoTypeConverter : public TypeConverter {
     addConversion([this](MemRefType type) -> Type {
       return MemRefType::get(type.getShape(),
                              this->convertType(type.getElementType()));
+    });
+    addConversion([ctx](kernel::PreparedLinearTransformType type) -> Type {
+      return lattigo::CKKSLinearTransformationType::get(ctx);
     });
     addConversion([this](preprocessing::PreprocessingStorageType type) -> Type {
       return preprocessing::convertStorageElementTypes(type, this);
@@ -119,20 +123,6 @@ FailureOr<TypedValue<Ty>> findUniqueOpResult(Operation* op) {
   return failure();
 }
 
-// NOTE: we can not use containsDialect
-// for FuncOp declaration, which does not have a body
-template <typename... Dialects>
-bool containsArgumentOfDialect(Operation* op) {
-  auto funcOp = dyn_cast<func::FuncOp>(op);
-  if (!funcOp) {
-    return false;
-  }
-  return llvm::any_of(funcOp.getArgumentTypes(), [&](Type argType) {
-    return DialectEqual<Dialects...>()(
-        &getElementTypeOrSelf(argType).getDialect());
-  });
-}
-
 bool containsBootstrap(Operation* op) {
   auto funcOp = dyn_cast<func::FuncOp>(op);
   if (!funcOp) {
@@ -153,7 +143,24 @@ bool containsEncode(Operation* op) {
     return false;
   }
   auto result = walkFuncAndCallees(funcOp, [&](Operation* op) {
-    if (isa<lwe::RLWEEncodeOp>(op)) {
+    if (isa<lwe::RLWEEncodeOp, kernel::PrepareLinearTransformOp,
+            lattigo::CKKSPrepareLinearTransformOp, orion::LinearTransformOp>(
+            op)) {
+      return WalkResult::interrupt();
+    }
+    return WalkResult::advance();
+  });
+  return result.wasInterrupted();
+}
+
+bool containsApplyLinearTransform(Operation* op) {
+  auto funcOp = dyn_cast<func::FuncOp>(op);
+  if (!funcOp) {
+    return false;
+  }
+  auto result = walkFuncAndCallees(funcOp, [&](Operation* op) {
+    if (isa<kernel::ApplyLinearTransformOp, lattigo::CKKSApplyLinearTransformOp,
+            orion::LinearTransformOp>(op)) {
       return WalkResult::interrupt();
     }
     return WalkResult::advance();
@@ -613,6 +620,13 @@ struct ConvertOrionLinearTransformOp
     }
     Value evaluator = evaluatorResult.value();
 
+    FailureOr<Value> paramsResult =
+        getContextualEvaluator<lattigo::CKKSParameterType>(op.getOperation());
+    if (failed(paramsResult)) {
+      return op.emitOpError() << "CKKS parameter not found in function context";
+    }
+    Value params = paramsResult.value();
+
     FailureOr<Value> encoderResult =
         getContextualEvaluator<lattigo::CKKSEncoderType>(op.getOperation());
     if (failed(encoderResult)) {
@@ -625,10 +639,23 @@ struct ConvertOrionLinearTransformOp
         static_cast<int64_t>(cast<FloatAttr>(bsgsRatio).getValueAsDouble());
     auto logBsgsRatioAttr = rewriter.getI64IntegerAttr(logBsgsRatio);
 
-    rewriter.replaceOpWithNewOp<lattigo::CKKSLinearTransformOp>(
-        op, this->typeConverter->convertType(op.getResult().getType()),
-        evaluator, encoder, adaptor.getInput(), adaptor.getDiagonals(),
-        adaptor.getDiagonalIndices(), op.getOrionLevelAttr(), logBsgsRatioAttr);
+    int64_t slots = op.getSlotsAttr().getInt();
+    int64_t logSlots = llvm::Log2_64(slots);
+
+    auto ltType = lattigo::CKKSLinearTransformationType::get(op.getContext());
+    auto prepareOp = lattigo::CKKSPrepareLinearTransformOp::create(
+        rewriter, op.getLoc(), ltType, params, encoder, adaptor.getDiagonals(),
+        adaptor.getDiagonalIndices(),
+        /*source_row_indices=*/nullptr,
+        rewriter.getI64IntegerAttr(op.getOrionLevelAttr().getInt()),
+        rewriter.getI64IntegerAttr(logSlots), logBsgsRatioAttr);
+
+    auto applyOp = lattigo::CKKSApplyLinearTransformOp::create(
+        rewriter, op.getLoc(),
+        this->typeConverter->convertType(op.getResult().getType()), evaluator,
+        adaptor.getInput(), prepareOp.getResult());
+
+    rewriter.replaceOp(op, applyOp.getResult());
 
     return success();
   }
@@ -700,26 +727,91 @@ struct ConvertOrionChebyshevOp
   }
 };
 
-struct ConvertKernelLinearTransformOp
-    : public OpConversionPattern<kernel::LinearTransformOp> {
-  using OpConversionPattern<kernel::LinearTransformOp>::OpConversionPattern;
+struct ConvertKernelPrepareLinearTransformOp
+    : public OpConversionPattern<kernel::PrepareLinearTransformOp> {
+  using OpConversionPattern<
+      kernel::PrepareLinearTransformOp>::OpConversionPattern;
 
   LogicalResult matchAndRewrite(
-      kernel::LinearTransformOp op, OpAdaptor adaptor,
+      kernel::PrepareLinearTransformOp op, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override {
-    LLVM_DEBUG(llvm::dbgs() << "Lowering Kernel LinearTransformOp\n");
-
-    FailureOr<Value> evaluatorResult =
-        getContextualEvaluator<lattigo::CKKSEvaluatorType>(op.getOperation());
-    if (failed(evaluatorResult)) return evaluatorResult;
-    Value evaluator = evaluatorResult.value();
+    LLVM_DEBUG(llvm::dbgs() << "Lowering Kernel PrepareLinearTransformOp\n");
 
     FailureOr<Value> encoderResult =
         getContextualEvaluator<lattigo::CKKSEncoderType>(op.getOperation());
     if (failed(encoderResult)) return encoderResult;
     Value encoder = encoderResult.value();
 
-    // Extract level from input LWE ciphertext type
+    FailureOr<Value> paramsResult =
+        getContextualEvaluator<lattigo::CKKSParameterType>(op.getOperation());
+    if (failed(paramsResult)) return paramsResult;
+    Value params = paramsResult.value();
+
+    auto preparedType = op.getPrepared().getType();
+    int64_t slots = preparedType.getSlots();
+    if (slots <= 0 || !llvm::isPowerOf2_64(slots)) {
+      return op.emitOpError("slots must be a power of two");
+    }
+    int64_t logSlots = llvm::Log2_64(slots);
+    int64_t levelQ = preparedType.getLevel();
+    int64_t logBSGSRatio = preparedType.getLogBsgsRatio();
+
+    auto diagonalIndicesAttr = op.getDiagonalIndices();
+    std::vector<int32_t> diagonalIndicesI32;
+    diagonalIndicesI32.reserve(diagonalIndicesAttr.size());
+    for (auto val : diagonalIndicesAttr) {
+      diagonalIndicesI32.push_back(static_cast<int32_t>(val));
+    }
+    auto diagonalIndicesI32Attr =
+        rewriter.getDenseI32ArrayAttr(diagonalIndicesI32);
+
+    DenseI32ArrayAttr sourceRowIndicesI32Attr = nullptr;
+    if (auto sourceRowIndicesAttr = op.getSourceRowIndicesAttr()) {
+      std::vector<int32_t> sourceRowIndicesI32;
+      sourceRowIndicesI32.reserve(sourceRowIndicesAttr.size());
+      for (auto val : sourceRowIndicesAttr.asArrayRef()) {
+        sourceRowIndicesI32.push_back(static_cast<int32_t>(val));
+      }
+      sourceRowIndicesI32Attr =
+          rewriter.getDenseI32ArrayAttr(sourceRowIndicesI32);
+    }
+
+    Value diagonalsValue = adaptor.getDiagonals();
+    auto diagonalsType = cast<ShapedType>(diagonalsValue.getType());
+    if (isa<IntegerType>(diagonalsType.getElementType())) {
+      if (auto rankedTensorType = dyn_cast<RankedTensorType>(diagonalsType)) {
+        auto f64DiagonalsType = RankedTensorType::get(
+            rankedTensorType.getShape(), rewriter.getF64Type());
+        diagonalsValue = arith::SIToFPOp::create(
+            rewriter, op.getLoc(), f64DiagonalsType, diagonalsValue);
+      }
+    }
+
+    Type resultType =
+        getTypeConverter()->convertType(op.getPrepared().getType());
+    auto prepareOp = lattigo::CKKSPrepareLinearTransformOp::create(
+        rewriter, op.getLoc(), resultType, params, encoder, diagonalsValue,
+        diagonalIndicesI32Attr, sourceRowIndicesI32Attr,
+        rewriter.getI64IntegerAttr(levelQ),
+        rewriter.getI64IntegerAttr(logSlots),
+        rewriter.getI64IntegerAttr(logBSGSRatio));
+    prepareOp->setDiscardableAttrs(op->getDiscardableAttrDictionary());
+
+    rewriter.replaceOp(op, prepareOp.getResult());
+    return success();
+  }
+};
+
+struct ConvertKernelApplyLinearTransformOp
+    : public OpConversionPattern<kernel::ApplyLinearTransformOp> {
+  using OpConversionPattern<
+      kernel::ApplyLinearTransformOp>::OpConversionPattern;
+
+  LogicalResult matchAndRewrite(
+      kernel::ApplyLinearTransformOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
+    LLVM_DEBUG(llvm::dbgs() << "Lowering Kernel ApplyLinearTransformOp\n");
+
     auto lweType = dyn_cast<lwe::LWECiphertextType>(op.getInput().getType());
     if (!lweType) {
       return op.emitOpError("input is not LWE ciphertext");
@@ -728,36 +820,9 @@ struct ConvertKernelLinearTransformOp
     if (!modulusChain) {
       return op.emitOpError("input LWE type has no modulus chain");
     }
-    int64_t levelQ = modulusChain.getCurrent();
-
-    // Convert diagonal_indices from I64 to I32 (Lattigo CKKSLinearTransformOp
-    // expects I32)
-    auto diagonalIndicesAttr = op.getDiagonalIndices();
-    std::vector<int32_t> diagonalIndicesI32;
-    for (auto val : diagonalIndicesAttr) {
-      diagonalIndicesI32.push_back(static_cast<int32_t>(val));
-    }
-    auto diagonalIndicesI32Attr =
-        rewriter.getDenseI32ArrayAttr(diagonalIndicesI32);
-
-    // logBabyStepGiantStepRatio: 0 indicates a 1:1 baby-step to giant-step
-    // ratio for lintrans.Parameters.
-    int64_t logBSGSRatio = 0;
-
-    auto levelQAttr = rewriter.getI64IntegerAttr(levelQ);
-    auto logBSGSRatioAttr = rewriter.getI64IntegerAttr(logBSGSRatio);
-
-    auto diagonalsAttr = op.getDiagonals();
-    Value diagonalsValue =
-        rewriter.create<arith::ConstantOp>(op.getLoc(), diagonalsAttr);
-
-    auto linearTransformOp = rewriter.create<lattigo::CKKSLinearTransformOp>(
-        op.getLoc(), adaptor.getInput().getType(), evaluator, encoder,
-        adaptor.getInput(), diagonalsValue, diagonalIndicesI32Attr, levelQAttr,
-        logBSGSRatioAttr);
 
     auto outputLweType =
-        dyn_cast<lwe::LWECiphertextType>(op.getResult().getType());
+        dyn_cast<lwe::LWECiphertextType>(op.getOutput().getType());
     if (!outputLweType) {
       return op.emitOpError("output is not LWE ciphertext");
     }
@@ -766,18 +831,32 @@ struct ConvertKernelLinearTransformOp
       return op.emitOpError("output LWE type has no modulus chain");
     }
 
-    Value result = linearTransformOp.getResult();
-    if (outputModulusChain.getCurrent() < modulusChain.getCurrent()) {
-      int64_t diff =
-          modulusChain.getCurrent() - outputModulusChain.getCurrent();
-      for (int64_t i = 0; i < diff; ++i) {
-        auto rescaleOp = rewriter.create<lattigo::CKKSRescaleNewOp>(
-            op.getLoc(), result.getType(), evaluator, result);
-        result = rescaleOp.getResult();
-      }
+    int64_t inputLevel = modulusChain.getCurrent();
+    int64_t outputLevel = outputModulusChain.getCurrent();
+    if (outputLevel != inputLevel - 1) {
+      return op.emitOpError() << "expected output level (" << outputLevel
+                              << ") to be exactly one less than input level ("
+                              << inputLevel << ")";
     }
 
-    rewriter.replaceOp(op, result);
+    FailureOr<Value> evaluatorResult =
+        getContextualEvaluator<lattigo::CKKSEvaluatorType>(op.getOperation());
+    if (failed(evaluatorResult)) return evaluatorResult;
+    Value evaluator = evaluatorResult.value();
+
+    auto applyOp = lattigo::CKKSApplyLinearTransformOp::create(
+        rewriter, op.getLoc(), adaptor.getInput().getType(), evaluator,
+        adaptor.getInput(), adaptor.getPrepared());
+    applyOp->setDiscardableAttrs(op->getDiscardableAttrDictionary());
+
+    // Lattigo's apply_linear_transform preserves the input level with a
+    // multiplied scale (so a rescale must follow).
+    // kernel.apply_linear_transform drops exactly one level.
+    auto rescaleOp = lattigo::CKKSRescaleNewOp::create(
+        rewriter, op.getLoc(), adaptor.getInput().getType(), evaluator,
+        applyOp.getResult());
+
+    rewriter.replaceOp(op, rescaleOp.getResult());
     return success();
   }
 };
@@ -973,38 +1052,9 @@ using ConvertCKKSBootstrappingOp =
 struct LWEToLattigo : public impl::LWEToLattigoBase<LWEToLattigo> {
   // See https://github.com/llvm/llvm-project/pull/127772
   // During dialect conversion, the attribute of the func::CallOp is not
-  // preserved. We save the dialect attributes of func::CallOp before
-  // conversion and restore them after conversion.
-  //
-  // Note that this is not safe as after conversion the order of func::CallOp
-  // may change. However, this is the best we can do for now as we do not have
-  // a map from the old func::CallOp to the new func::CallOp.
-  SmallVector<SmallVector<NamedAttribute>> funcCallOpDialectAttrs;
-
-  void saveFuncCallOpDialectAttrs() {
-    funcCallOpDialectAttrs.clear();
-    auto* module = getOperation();
-    module->walk([&](func::CallOp callOp) {
-      SmallVector<NamedAttribute> dialectAttrs;
-      for (auto namedAttr : callOp->getDialectAttrs()) {
-        dialectAttrs.push_back(namedAttr);
-      }
-      funcCallOpDialectAttrs.push_back(dialectAttrs);
-    });
-  }
-
-  void restoreFuncCallOpDialectAttrs() {
-    auto* module = getOperation();
-    auto* funcCallOpDialectAttrsIter = funcCallOpDialectAttrs.begin();
-    module->walk([&](func::CallOp callOp) {
-      callOp->setDialectAttrs(*funcCallOpDialectAttrsIter);
-      ++funcCallOpDialectAttrsIter;
-    });
-  }
-
   void runOnOperation() override {
     // Save the dialect attributes of func::CallOp before conversion.
-    saveFuncCallOpDialectAttrs();
+    auto funcCallOpDialectAttrs = saveFuncCallOpDialectAttrs(getOperation());
 
     // Every lattigo ciphertext has the same opaque type, so a ciphertext
     // argument that does not start at the top of the modulus chain is
@@ -1055,7 +1105,8 @@ struct LWEToLattigo : public impl::LWEToLattigoBase<LWEToLattigo> {
         .addIllegalOp<lwe::RLWEEncryptOp, lwe::RLWEDecryptOp, lwe::RLWEEncodeOp,
                       lwe::RLWEDecodeOp, lwe::RAddOp, lwe::RSubOp, lwe::RMulOp,
                       lwe::RMulPlainOp, lwe::RSubPlainOp, lwe::RAddPlainOp,
-                      kernel::EvalChebyshevOp, kernel::LinearTransformOp>();
+                      kernel::EvalChebyshevOp, kernel::PrepareLinearTransformOp,
+                      kernel::ApplyLinearTransformOp>();
 
     RewritePatternSet patterns(context);
     addStructuralConversionPatterns(typeConverter, patterns, target);
@@ -1076,10 +1127,12 @@ struct LWEToLattigo : public impl::LWEToLattigoBase<LWEToLattigo> {
                                     ckks::CKKSDialect, lattigo::LattigoDialect>(
               op);
       bool hasEncodeOp = containsEncode(op);
+      bool hasApplyOp = containsApplyLinearTransform(op);
 
       return typeConverter.isSignatureLegal(op.getFunctionType()) &&
              typeConverter.isLegal(&op.getBody()) &&
-             (!(hasCryptoArg || hasEncodeOp) || hasCryptoContextArg);
+             (!(hasCryptoArg || hasEncodeOp || hasApplyOp) ||
+              hasCryptoContextArg);
     });
 
     // Ensures that callee function signature is consistent
@@ -1192,8 +1245,11 @@ struct LWEToLattigo : public impl::LWEToLattigoBase<LWEToLattigo> {
                   containsBootstrap(op);
          })},
         {lattigo::CKKSEvaluatorType::get(context),
-         gateByCKKSModuleAttr(
-             containsArgumentOfDialect<lwe::LWEDialect, ckks::CKKSDialect>)},
+         gateByCKKSModuleAttr([&](Operation* op) {
+           return containsArgumentOfDialect<lwe::LWEDialect, ckks::CKKSDialect>(
+                      op) ||
+                  containsApplyLinearTransform(op);
+         })},
         {lattigo::CKKSParameterType::get(context),
          gateByCKKSModuleAttr([&](Operation* op) {
            return containsArgumentOfDialect<lwe::LWEDialect, ckks::CKKSDialect>(
@@ -1236,7 +1292,8 @@ struct LWEToLattigo : public impl::LWEToLattigoBase<LWEToLattigo> {
           ConvertCKKSDecodeOp, ConvertCKKSLevelReduceOp,
           ConvertCKKSBootstrappingOp, ConvertOrionLinearTransformOp,
           ConvertOrionChebyshevOp, ConvertKernelEvalChebyshevOp,
-          ConvertKernelLinearTransformOp>(typeConverter, context);
+          ConvertKernelPrepareLinearTransformOp,
+          ConvertKernelApplyLinearTransformOp>(typeConverter, context);
     }
     // Misc
 
@@ -1278,7 +1335,7 @@ struct LWEToLattigo : public impl::LWEToLattigoBase<LWEToLattigo> {
     walkAndApplyPatterns(module, std::move(postPatterns2));
 
     // Restore the dialect attributes of func::CallOp after conversion.
-    restoreFuncCallOpDialectAttrs();
+    restoreFuncCallOpDialectAttrs(getOperation(), funcCallOpDialectAttrs);
   }
 };
 

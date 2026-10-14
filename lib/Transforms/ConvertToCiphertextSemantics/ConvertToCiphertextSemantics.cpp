@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <numeric>
@@ -59,10 +60,11 @@
 #include "mlir/include/mlir/Dialect/Tensor/IR/Tensor.h"  // from @llvm-project
 #include "mlir/include/mlir/Dialect/Tensor/Transforms/Transforms.h"  // from @llvm-project
 #include "mlir/include/mlir/Dialect/Utils/StaticValueUtils.h"  // from @llvm-project
-#include "mlir/include/mlir/IR/AffineExpr.h"             // from @llvm-project
-#include "mlir/include/mlir/IR/AffineMap.h"              // from @llvm-project
-#include "mlir/include/mlir/IR/Attributes.h"             // from @llvm-project
-#include "mlir/include/mlir/IR/Builders.h"               // from @llvm-project
+#include "mlir/include/mlir/IR/AffineExpr.h"  // from @llvm-project
+#include "mlir/include/mlir/IR/AffineMap.h"   // from @llvm-project
+#include "mlir/include/mlir/IR/Attributes.h"  // from @llvm-project
+#include "mlir/include/mlir/IR/Builders.h"    // from @llvm-project
+#include "mlir/include/mlir/IR/BuiltinAttributeInterfaces.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/BuiltinAttributes.h"      // from @llvm-project
 #include "mlir/include/mlir/IR/BuiltinOps.h"             // from @llvm-project
 #include "mlir/include/mlir/IR/BuiltinTypeInterfaces.h"  // from @llvm-project
@@ -1054,6 +1056,35 @@ struct ConvertLinalgMatvecLayout : public ConversionBase<linalg::MatvecOp> {
   bool unrollKernels;
 };
 
+// Returns a reader for the elements of a constant tensor, by flat row-major
+// index, or an empty function when the constant cannot be read.
+//
+// Supports both DenseElementsAttr and DenseF{32,64}ResourceElementsAttr.
+std::function<Attribute(int64_t)> constantElementReader(
+    ElementsAttr elementsAttr) {
+  if (auto valuesBegin = elementsAttr.try_value_begin<Attribute>()) {
+    return
+        [begin = *valuesBegin](int64_t i) -> Attribute { return *(begin + i); };
+  }
+  auto floatType = dyn_cast<FloatType>(elementsAttr.getElementType());
+  if (!floatType) return nullptr;
+  if (auto resource = dyn_cast<DenseF32ResourceElementsAttr>(elementsAttr)) {
+    if (auto data = resource.tryGetAsArrayRef()) {
+      return [data = *data, floatType](int64_t i) -> Attribute {
+        return FloatAttr::get(floatType, data[i]);
+      };
+    }
+  } else if (auto resource =
+                 dyn_cast<DenseF64ResourceElementsAttr>(elementsAttr)) {
+    if (auto data = resource.tryGetAsArrayRef()) {
+      return [data = *data, floatType](int64_t i) -> Attribute {
+        return FloatAttr::get(floatType, data[i]);
+      };
+    }
+  }
+  return nullptr;
+}
+
 struct PreserveLinalgMatvecAsLinearTransform
     : public ConversionBase<linalg::MatvecOp> {
  public:
@@ -1068,7 +1099,7 @@ struct PreserveLinalgMatvecAsLinearTransform
       linalg::MatvecOp op, OpAdaptor adaptor,
       ContextAwareConversionPatternRewriter& rewriter) const final {
     auto target = getTargetConfig(op->getParentOfType<ModuleOp>());
-    if (failed(target) || !target->has_kernel_linear_transform) {
+    if (failed(target) || !target->hasKernelLinearTransform) {
       return rewriter.notifyMatchFailure(op, "linear transform not enabled");
     }
 
@@ -1087,10 +1118,15 @@ struct PreserveLinalgMatvecAsLinearTransform
     if (!constantMatrixOp) {
       return rewriter.notifyMatchFailure(op, "matrix is not a constant");
     }
-    auto denseAttr = dyn_cast<DenseElementsAttr>(constantMatrixOp.getValue());
-    if (!denseAttr) {
+    auto elementsAttr = dyn_cast<ElementsAttr>(constantMatrixOp.getValue());
+    if (!elementsAttr) {
+      return rewriter.notifyMatchFailure(op, "matrix is not an ElementsAttr");
+    }
+    std::function<Attribute(int64_t)> readElement =
+        constantElementReader(elementsAttr);
+    if (!readElement) {
       return rewriter.notifyMatchFailure(op,
-                                         "matrix is not a DenseElementsAttr");
+                                         "matrix elements are not readable");
     }
 
     auto matrixType = cast<RankedTensorType>(matrix.getType());
@@ -1123,7 +1159,7 @@ struct PreserveLinalgMatvecAsLinearTransform
       int64_t s = pointPair.second[1];
 
       int64_t flatIndex = row * numCols + col;
-      Attribute val = denseAttr.getValues<Attribute>()[flatIndex];
+      Attribute val = readElement(flatIndex);
       diagonalValues[d * slots + s] = val;
     }
 
@@ -1164,9 +1200,14 @@ struct PreserveLinalgMatvecAsLinearTransform
         getTypeConverter()->convertType(outputType, resultLayout.value());
 
     rewriter.setInsertionPointAfter(op);
+    auto diagonalsValue = arith::ConstantOp::create(
+        rewriter, op.getLoc(), cast<TypedAttr>(diagonalsAttr));
+    setMaterializedAttr(diagonalsValue);
     auto linearTransformOp = kernel::LinearTransformOp::create(
         rewriter, op.getLoc(), convertedOutputType, adaptor.getInputs()[1],
-        diagonalsAttr, diagonalIndicesAttr, /*bsgs_ratio=*/nullptr);
+        diagonalsValue.getResult(), diagonalIndicesAttr,
+        /*source_row_indices=*/nullptr,
+        /*bsgs_ratio=*/nullptr);
 
     setMaterializedAttr(linearTransformOp);
     linearTransformOp->setAttr(kLayoutAttrName, resultLayout.value());
